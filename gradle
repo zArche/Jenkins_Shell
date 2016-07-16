@@ -1,0 +1,133 @@
+#!/bin/bash
+
+echo "android build"
+
+shell_path="/home/arche/workspace/jenkins/shell"
+
+build_path="/var/www/htdocs/jenkins/build/android"
+env_path="/home/arche/workspace/jenkins/env"
+sdk_path="/home/jenkins/DevTools/adt/sdk"
+web_path="http://192.168.2.128/jenkins/build/android"
+
+gradle_path="/home/jenkins/DevTools/android-studio/gradle/gradle-2.10/bin"
+
+function func_log_print(){
+        local level="$1"
+        local msg="$2"
+
+        case $level in
+                error)  echo -e "${msg} ";;
+                warn)   echo -e "${msg} ";;
+                info)   echo -e "${msg} ";;
+                concern)        echo -e "${msg} ";;
+                *)              echo "${msg}";;
+        esac
+}
+
+function func_android_build(){
+        local local_path=$1
+        local target_sdk=$2
+        local build_num=${BUILD_NUMBER}
+        local projectName=${JOB_NAME}
+        local keystore_file_path="$env_path/release.jks"
+        local debug_keystore_file_path="$env_path/debug.keystore"
+        local build_folder=""
+        local build_save_path=""
+        local apk_name=""
+
+        local build_type=${BUILD_TYPE}
+
+	local commit_id=""
+	
+        echo "###############BUILD_TYPE############"
+        echo "${BUILD_TYPE}"
+
+
+        func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): 进行第一步：编译构建"
+	if [ $? -eq 0 ];then
+
+	        ###  编译apk工程 start   ###
+        	if [ -e $local_path/${JOB_NAME} ];then
+                	cd $local_path/${JOB_NAME}
+       		else
+                	cd $local_path
+        	fi
+		echo "sdk.dir=$sdk_path" >> local.properties
+        	###  编译apk工程 end   ###
+	
+		local version_name=`cat app/build.gradle | grep versionName | awk -F ' ' '{print $2}' | tr -d "'" | tr -d '"'`
+
+        	#ant build
+	        func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): 进行第二步：打包构建"
+		func_log_print "info" "[+] current pwd is: `pwd`"
+        	$gradle_path/gradle clean
+	        if [[ "${BUILD_TYPE}" == "release" ]];then
+                	#write the key and passwd to app/buile.gradle
+			$gradle_path/gradle build 
+	        else
+        	        $gradle_path/gradle build
+	        fi
+		if [ $? -eq 0 ];then
+	        	#apk file save
+		        func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): 进行第三步：打包分发"
+        		build_apk_save_path=$build_path/$projectName/$build_type
+			mkdir -p $build_apk_save_path
+
+        		cp  app/build/outputs/apk/*.apk $build_apk_save_path
+	        	if [[ "${BUILD_TYPE}" == "debug" ]];then
+        	        	mv $build_apk_save_path/app-debug.apk  $build_apk_save_path/${projectName}_debug_v${version_name}_${build_num}.apk
+	                	mv $build_apk_save_path/app-debug-unaligned.apk  $build_apk_save_path/${projectName}_debug_v${version_name}_${build_num}_unaligned.apk
+		        elif [[ "${BUILD_TYPE}" == "release" ]];then
+                		mv $build_apk_save_path/app-release.apk  $build_apk_save_path/${projectName}_release_v${version_name}_${build_num}.apk
+		                mv $build_apk_save_path/app-release-unaligned.apk  $build_apk_save_path/${projectName}_release_v${version_name}_${build_num}_unaligned.apk
+	        	else
+        	        	func_log_print "error" "[-] `date +'%H:%M:%S'` error($info_pattern@$LINENO): 执行android update lib-project -p . --target ${target_sdk} 错误"
+	                	func_exit 1
+		        fi
+        		download_url="$web_path/$projectName/$build_type/${projectName}_${BUILD_TYPE}_v${version_name}_${build_num}.apk"
+		else
+                        $shell_path/email "failed"
+
+		fi
+
+	fi
+        #生成通知邮件内容
+        png_path="$build_path/$projectName/$build_type"
+        mkdir -p $png_path
+        png_path="$png_path/${projectName}_${BUILD_TYPE}_v${version_name}_${build_num}.png"
+        qrencode -o $png_path $download_url
+        if [  -e "${png_path}" ]; then
+                func_log_print "info" "[+] `date +'%H:%M:%S'` info($info_pattern@$LINENO): 二维码生成成功!"
+        else
+                func_log_print "error" "[-] `date +'%H:%M:%S'` error($info_pattern@$LINENO): 二维码生成失败!"
+		$shell_path/email "failed"
+		exit 1
+        fi
+
+	cd $local_path
+	commit_id=`git log | grep commit | awk {'if(NR==1) print $2;'}`
+        $shell_path/email "jenkins" $version_name $build_num $download_url ${download_url/apk/png} $commit_id
+	echo "$shell_path/email \"jenkins\" $version_name $build_num $download_url ${download_url/apk/png} $commit_id"
+
+        func_log_print "concern" "####################################"
+        func_log_print "concern"
+        func_log_print "concern" "android自动打包成功，下载链接为："
+        func_log_print "concern"  "${download_url}"
+        func_log_print "concern"
+        func_log_print "concern" "二维码地址为："
+        func_log_print "concern"  ${download_url/apk/png}
+        func_log_print "concern"
+        func_log_print "concern" "####################################"
+        func_log_print "concern"
+
+        exit 0
+}
+
+
+
+##############################################################################
+#主程序
+############################################################################## 
+func_android_build $1 1 
+
+

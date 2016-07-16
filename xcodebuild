@@ -1,0 +1,68 @@
+#!/bin/bash
+
+echo "ios build"
+token="b4b8d84671120817eb2abe1ae9a3479c" #fir token,对应fir账号
+
+function func_log_print(){
+    local level="$1"
+    local msg="$2"
+
+    case $level in
+            error)  echo -e "${msg} ";;
+            warn)   echo -e "${msg} ";;
+            info)   echo -e "${msg} ";;
+            concern)        echo -e "${msg} ";;
+            *)              echo "${msg}";;
+    esac
+}
+
+function func_ios_build(){
+
+    local local_path=$1
+    JOB_NAME=`echo $JOB_NAME|cut -d "-" -f 1`
+    echo "###############BUILD_TYPE############"
+    echo "               $BUILD_TYPE            "   
+
+    cd "$local_path"
+    func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): 第一步：构建"
+
+    if [ -z $SCHEME ];then
+        SCHEME=${JOB_NAME}
+    fi
+    xcodebuild -configuration ${BUILD_TYPE} -scheme $SCHEME clean build SYMROOT=$JOB_NAME 
+    func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO):xcodebuild -configuration ${BUILD_TYPE} -scheme $SCHEME clean build SYMROOT=$JOB_NAME" 
+    if [ -e ${JOB_NAME}/${BUILD_TYPE}-iphoneos/${JOB_NAME}.app ];then
+        func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): 第二步：打包分发"
+	cd ${JOB_NAME}/${BUILD_TYPE}-iphoneos
+	rm -rf *.ipa
+	xcrun -sdk iphoneos PackageApplication -v ${JOB_NAME}.app -o `pwd`/${JOB_NAME}.ipa
+	func_log_print "info" "[+] `date +'%H:%M:%S'` info(@$LINENO): xcrun -sdk iphoneos PackageApplication -v ${JOB_NAME}.app -o `pwd`/${JOB_NAME}.ipa"
+	if [ -e ${JOB_NAME}.ipa ];then
+	    while [ -z $download_url ]
+	    do
+		download_url=`/usr/local/bin/fir publish -Q -T $token ${JOB_NAME}.ipa | grep http | cut -d ":" -f 5-`
+	    done
+	else
+	   func_log_print "error" "[+] `date +'%H:%M:%S'` error(@$LINENO):IOS Build(xcrun): 编译失败!"
+	    exit 1
+        fi
+    else
+	func_log_print "error" "[+] `date +'%H:%M:%S'` error(@$LINENO):IOS Build(xcodebuild): 编译失败!"
+	exit 1
+    fi
+
+    func_log_print "concern" "####################################"
+    func_log_print "concern"
+    func_log_print "concern" "ios自动打包成功，下载链接为："
+    func_log_print "concern"  "${download_url}"
+    func_log_print "concern"    密码为:sensetime
+    func_log_print "concern"
+    func_log_print "concern" "####################################"
+    func_log_print "concern"
+    echo $download_url
+    exit 0
+}
+##############################################################################
+#主程序
+############################################################################## 
+func_ios_build $1 

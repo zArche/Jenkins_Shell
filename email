@@ -1,0 +1,61 @@
+#!/bin/bash
+
+flag=$1
+file_path="$JENKINS_HOME/email-templates/${JOB_NAME}.html"
+
+
+build_failed_email(){
+        rm -rf $file_path
+        touch $file_path
+        echo '<span style="color:#999999;">(本邮件是程序自动下发的，请勿回复！自动打包地址：http://192.168.2.128:8080/ ，</span><span style="color:#E53333;"><span style="color:#E53333;">默 
+认账号和密码是各位的邮箱姓名</span></span><span style="color:#999999;">，如需添加请邮件联系 xxx@xxx.com。)</span><br />
+<br />' >> $file_path
+        echo '<strong>触发人</strong>：<% build.causes.each() { cause -> %> ${cause.shortDescription} <%  } %>
+<br />' >> $file_path
+        echo '<strong>项目名称</strong>：${project.name}<br />' >> $file_path
+        echo "<strong>构建编号</strong>：$BUILD_NUMBER<br />" >> $file_path
+        echo '<strong>构建状态</strong>：${build.result}<br />' >> $file_path
+        echo '<strong color="red"> 详情请见日志文档！</strong>' >> $file_path
+        echo '<p style="text-align:right;">
+        <span style="color:#999999;">(@xxx科技 www.xxx.com)</span> 
+</p>' >> $file_path
+}
+
+build_email_content(){
+        local version=$1 
+        local build_num=$2
+        local download_url=$3
+        local png_path=$4
+        local commit_id=$5
+        rm -rf $file_path
+        touch $file_path
+        echo '<span style="color:#999999;">(本邮件是程序自动下发的，请勿回复！自动打包地址：http://192.168.2.128:8080/ ，</span><span style="color:#E53333;"><span style="color:#E53333;">默
+认账号和密码是各位的邮箱姓名</span></span><span style="color:#999999;">，如需添加请邮件联系 xxx@xxx.com。)</span><br />
+<br />' >> $file_path 
+        echo '<strong>触发人</strong>：<% build.causes.each() { cause -> %> ${cause.shortDescription} <%  } %>
+<br />' >> $file_path 
+        echo '<strong>项目名称</strong>：${project.name}<br />' >> $file_path
+	echo "<strong>版本号</strong>：${version}<br>" >> $file_path
+        echo "<strong>构建编号</strong>：$BUILD_NUMBER<br />" >> $file_path
+        echo " <strong>分支号</strong>：$COMMONIT_BRANCH <br />" >> $file_path
+        echo "<strong>Commit Id</strong>：$commit_id<br />" >> $file_path
+        echo '<strong>构建状态</strong>：${build.result}<br />' >> $file_path
+        echo "<strong>链接下载</strong>：<span style=\"color:#E53333;\"><a href=\"${download_url}\" target=\"_blank\"><span style=\"color:#E53333;\">${download_url}</span></a></span><br/> " >> $file_path
+        echo "<strong>二维码下载</strong>：<img align=\"top\" src=\"$png_path\"/>"  >> $file_path
+        echo '<p style="text-align:right;">
+        <span style="color:#999999;">(@xxx科技 www.xxx.com)</span> 
+</p>' >> $file_path
+
+}
+
+case $flag in
+	"git")
+	build_failed_email
+	;;
+	"jenkins")
+	build_email_content $2 $3 $4 $5 $6
+	;;
+	"failed") 
+	build_failed_email
+	;;
+esac

@@ -1,0 +1,43 @@
+#!/bin/bash
+
+lib_path="/home/jenkins/jenkins/workspace" #此workspace为jenkins自动生成的工作目录
+android_tools = "/home/jenkins/DevTools/adt/sdk/tools/" #存放android sdk目录，为了避免jenkins环境下，AndroidHome环境变量失效
+function func_log_print(){
+        local level="$1"
+        local msg="$2"
+
+        case $level in
+                error)  echo -e "${msg} ";;
+                warn)   echo -e "${msg} ";;
+                info)   echo -e "${msg} ";;
+                concern)        echo -e "${msg} ";;
+                *)              echo "${msg}";;
+        esac
+}
+function func_android_lib_update(){ #此处递归寻找android libs路径，并执行update操作
+	local current_lib_path=$1
+	local target_sdk=$2
+
+	cd $current_lib_path
+
+	sed -i "s/\\\\/\//g" project.properties
+	echo "" >> project.properties
+	while read line; do
+		if [[ $line == "android.library.reference"* ]]; then
+			lib=`echo $line | cut -d '=' -f 2`
+			libs="$libs,$lib"
+			func_android_lib_update $current_lib_path/$lib $target_sdk 
+		fi
+	done<$current_lib_path/project.properties
+	func_log_print "info" "[+] `date +'%H:%M:%S'` info($info_pattern@$LINENO): `pwd`--- android update lib-project -p $current_lib_path --target ${target_sdk}"
+	tmp_info=`$android_tools/android update lib-project -p $current_lib_path --target ${target_sdk}`
+	echo $tmp_info
+        if [ $? -ne 0 ]; then
+            func_log_print "error" "[-] `date +'%H:%M:%S'` error($info_pattern@$LINENO): 执行android update lib-project -p . --target ${target_sdk} 错误"
+            exit 1
+        fi
+	return 
+	
+}
+func_android_lib_update $1 $2  
+
