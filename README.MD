@@ -1,19 +1,17 @@
-#============================================
-#==	jenkins自动打包脚本与插件脚本
-#============================================
 
-通用插件:
-  git:
-	代替jenkins自有的git插件，实现自定义需求的git插件。
-	目前实现功能有：
-	  git clone:
+#jenkins自动打包脚本与插件脚本
+##通用插件:
+  + git:
+	> 代替jenkins自有的git插件，实现自定义需求的git插件。
+	> 目前实现功能有：
+	  1. git clone:
 	      clone项目、判断项目是否存在，存在则pull、可自定义clone路径
-          git pull:
+          2. git pull:
               更新项目，主要用于更新依赖库项目
-	使用方式：
+	> 使用方式：
 	  git clone xxxx.xxxx.com/xxx.git /home/xxx/xxx
 	  git pull /home/xxx/librarys
-	可以继续扩展功能，只需再case语句中增加action与具体操作即可
+	> 可以继续扩展功能，只需再case语句中增加action与具体操作即可
   
   email:
 	编写email模板的插件，可以自定义任意内容的email模板
